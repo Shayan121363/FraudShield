@@ -1,0 +1,26 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.egg-info/
+
+# Node
+node_modules/
+frontend/dist/
+
+# Local database and scratch
+fraud.db
+*.log
+
+# Secrets
+.env
+.env.local
+
+# Model artefacts are committed on purpose so a fresh clone runs out of the box.
+# They total under 500 KB. Uncomment the next line if you move them to OSS.
+# ml/models/
+
+# Large generated files (data/transactions.csv is committed so the demo runs)
+*.parquet
+*.zip
