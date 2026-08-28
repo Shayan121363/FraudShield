@@ -1,0 +1,11 @@
+{
+  "xgb_roc_auc": 1.0,
+  "xgb_pr_auc": 0.987,
+  "autoencoder_roc_auc": 0.9987,
+  "ensemble_pr_auc": 0.9913,
+  "best_threshold": 0.8616,
+  "anomaly_threshold": 0.50038,
+  "ensemble_weight_supervised": 0.7,
+  "test_set_size": 10000,
+  "test_fraud_count": 25
+}
