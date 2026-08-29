@@ -100,7 +100,7 @@ def generate_explanation(top_factors: list, risk_level: str, fraud_prob: float) 
 
 
 def score_transaction(txn: Transaction) -> PredictionResponse:
-    row = pd.DataFrame([txn.dict(exclude={"transaction_id"})])[FEATURE_COLS]
+    row = pd.DataFrame([txn.model_dump(exclude={"transaction_id"})])[FEATURE_COLS]
     scaled = scaler.transform(row)
 
     fraud_prob = float(xgb_model.predict_proba(scaled)[0, 1])

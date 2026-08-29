@@ -24,4 +24,4 @@ class TransactionRecord(Base):
     risk_level = Column(String)
     top_factors_json = Column(Text)
     explanation = Column(Text)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.datetime.now(datetime.timezone.utc))

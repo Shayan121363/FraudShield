@@ -11,6 +11,7 @@ frontend/dist/
 
 # Local database and scratch
 fraud.db
+_verify.db
 *.log
 
 # Secrets

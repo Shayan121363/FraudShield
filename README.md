@@ -18,16 +18,18 @@ I would rather put this at the top than make you dig for it.
 | REST and WebSocket API | Works. Six endpoints. |
 | Database audit trail | Works. Postgres or SQLite via env var. |
 | React analyst console | Works. Production build passes. |
-| Training pipeline | Runs, but see [Known issues](#known-issues) |
-| **Model performance data** | **Measured on synthetic transactions** |
+| Training pipeline | Runs and regenerates every served artefact. Byte-identical across runs. |
+| **Model performance data** | **Measured on synthetic transactions that are too easy** |
 | Alibaba Cloud deployment | Not done yet |
 | Analyst review workflow | Not done yet |
 
 The performance numbers in this README come from a **synthetic dataset** whose classes
-are more separated than production data would be. Treat them as evidence that the
-architecture and the explainability layer work end to end, not as a claim about
-real-world detection quality. Re-baselining against a real labelled corpus is the
-next piece of work and the numbers will change.
+are more separated than production data would be. They are now known to be saturated: an
+untuned `LogisticRegression` reaches the same PR-AUC as the full ensemble on the same
+split (see [Results](#results)). Read the numbers as evidence that the architecture and
+the explainability layer work end to end, and as no evidence at all about real-world
+detection quality. Re-baselining against a real labelled corpus is the next piece of work
+and the numbers will change.
 
 ---
 
@@ -94,6 +96,7 @@ records cannot drift apart.
 | Explainability | SHAP `TreeExplainer` | Additive, per-transaction, theoretically consistent attributions |
 | Reporting | Rule-based generation from SHAP values | Deterministic and auditable. An LLM rewrite is planned, see roadmap |
 | Evaluation | PR-AUC, precision/recall, F1-optimal threshold | Accuracy is meaningless under this imbalance |
+| Baseline check | Untuned logistic regression on the same split | Stops a saturated synthetic metric being read as model quality |
 
 ### Results
 
@@ -102,12 +105,21 @@ class ratio and never resampled.
 
 | Metric | Value |
 |---|---|
-| XGBoost PR-AUC | 0.987 |
-| XGBoost ROC-AUC | 1.000 |
-| Autoencoder ROC-AUC (reconstruction error) | 0.9987 |
-| Ensemble PR-AUC | 0.9913 |
-| F1-optimal decision threshold | 0.8616 |
-| Anomaly calibration threshold | 0.50038 |
+| XGBoost PR-AUC | 1.0000 |
+| XGBoost ROC-AUC | 1.0000 |
+| Autoencoder ROC-AUC (reconstruction error) | 0.9969 |
+| Ensemble PR-AUC | 1.0000 |
+| F1-optimal decision threshold (ensemble score) | 0.6450 |
+| F1-optimal threshold, supervised score alone | 0.5251 |
+| Anomaly calibration threshold | 0.53891 |
+| **Untuned `LogisticRegression` PR-AUC, same split** | **1.0000** |
+
+That last row is the one that matters. A seven-feature linear model, with no SMOTE and no
+tuning, separates this test set perfectly. Every metric above is therefore at ceiling and
+the ensemble cannot be shown to add anything on this data. No single feature does it alone
+(the best is `distance_from_home_km`, 0.7946 PR-AUC), but the combination is trivially
+separable, which is a property of the generator rather than of the modelling. Both models
+and the fusion weight only become testable against a real corpus.
 
 These are reproducible from `ml/models/metrics.json`, and `/health` returns the same
 object at runtime. With 25 positive cases in the test set the confidence interval on
@@ -163,6 +175,8 @@ fraud-detection/
 │       │   └── ExplainabilityPanel.jsx SHAP factors and note
 │       ├── App.css
 │       └── index.css
+├── scripts/
+│   └── verify_pipeline.py      Serving-path contract checks + linear baseline probe
 └── data/
     └── transactions.csv        Generated dataset, committed so the demo runs
 ```
@@ -203,7 +217,17 @@ To regenerate the dataset or retrain from scratch:
 cd ml
 python generate_data.py     # writes ../data/transactions.csv
 python train.py             # writes ./models/*
+
+# From the repository root, check the serving path against whatever is in ml/models/
+python scripts/verify_pipeline.py
 ```
+
+`train.py` is deterministic. It pins seeds, runs XGBoost with `n_jobs=1` so split order
+does not depend on core count, and calibrates the anomaly threshold on legitimate
+*training* rows only rather than on the test set. Two consecutive runs produce
+byte-identical artefacts, which is what makes the committed models trustworthy as an
+actual product of this script. Paths resolve relative to `train.py`, so it runs from any
+working directory.
 
 ### Scoring a transaction by hand
 
@@ -214,7 +238,10 @@ curl -X POST http://localhost:8000/predict ^
 ```
 
 That payload scores as `critical` with a risk score of 1.0, driven by merchant risk,
-account age and distance from home.
+distance from home and account age. The response above is captured live, not hand-written,
+and `scripts/verify_pipeline.py` re-checks it. Note the `fraud_probability` of exactly 1.0:
+on saturated synthetic data the supervised model pins to the ceiling, so the ordering of
+factors is currently more informative than the number.
 
 ---
 
@@ -234,21 +261,28 @@ A scoring response looks like this:
 ```json
 {
   "transaction_id": "TXN001",
-  "fraud_probability": 0.9982,
+  "fraud_probability": 1.0,
   "anomaly_score": 1.0,
   "risk_score": 1.0,
   "is_flagged": true,
   "risk_level": "critical",
   "top_factors": [
-    { "feature": "merchant_risk_score", "shap_value": 3.777, "value": 0.8 },
-    { "feature": "account_age_days", "shap_value": 2.305, "value": 40.0 }
+    { "feature": "merchant_risk_score", "shap_value": 4.376, "value": 0.8 },
+    { "feature": "distance_from_home_km", "shap_value": 3.318, "value": 320.0 },
+    { "feature": "account_age_days", "shap_value": 2.758, "value": 40.0 },
+    { "feature": "amount", "shap_value": 1.987, "value": 1200.5 },
+    { "feature": "hour", "shap_value": 0.763, "value": 3.0 }
   ],
-  "explanation": "This transaction shows strong indicators of fraud and should be blocked pending review. Primary factors: high-risk merchant, newer account, transaction far from home (fraud probability: 99.8%)."
+  "explanation": "This transaction shows strong indicators of fraud and should be blocked pending review. Primary factors: high-risk merchant, transaction far from home, newer account (fraud probability: 100.0%)."
 }
 ```
 
 Risk bands are `low` below 0.2, `medium` to 0.5, `high` to 0.8, `critical` at 0.8 and
-above. Flagging uses the F1-optimal threshold from training, not a round number.
+above. Flagging uses the F1-optimal threshold from training, not a round number, and that
+threshold is fitted on the blended ensemble score because that is the value the server
+compares against. An earlier build fitted it on the supervised probability and then
+applied it to the ensemble score, which is why the number moved from 0.8616 to 0.6450 when
+the pipeline was made reproducible.
 
 ---
 
@@ -282,26 +316,39 @@ than random, because the corpus spans 2017 to 2018 and fraud patterns drift.
 
 Honest list, roughly in the order I plan to clear it.
 
-- The supervised model is served from a committed `xgb_model.json`, but `train.py`
-  currently trains a `LogisticRegression` instead, is missing seven imports so it exits
-  with a `NameError`, and never writes `scaler.pkl`. The served model therefore cannot be
-  reproduced from the script as it stands. Fixing this is the first task.
+- Every headline metric is pinned at 1.0 because the synthetic corpus is too separable.
+  The ensemble is unproven on this data, and the 0.7/0.3 fusion weight is asserted rather
+  than measured. Resolving this needs the real corpus, not more tuning.
 - Metrics are synthetic-data metrics. See above.
-- No test suite anywhere in the repository.
+- `scripts/verify_pipeline.py` checks the serving path end to end, but there are no unit
+  tests for the scoring internals and no CI running any of it.
 - No authentication on any endpoint, and CORS is open to `*`. Fine for a local demo, not
   for a deployed one.
 - `SESSION_STATS` is process-local memory, so the numbers reset on restart and do not
   aggregate across workers. The durable figures are in `/history`.
-- The console header still renders the earlier working title.
+- The committed `xgb_model.json` is now a true product of `train.py`, but it is not the
+  model that shipped before this was fixed. Those hyperparameters were lost when the script
+  drifted to `LogisticRegression`, so the booster was retrained rather than matched. Every
+  score and threshold therefore shifted, and the previous artefacts still sit in git history.
+
+### Cleared
+
+- `train.py` trained a `LogisticRegression`, was missing seven imports so it exited with a
+  `NameError`, and never wrote `scaler.pkl`. It now trains the XGBoost booster the backend
+  loads, persists all five artefacts, and reproduces them byte-identically. Verified by
+  deleting `ml/models/` entirely and rebuilding from `data/transactions.csv` alone.
+- The console header and browser tab rendered the earlier working title; both say FraudShield now.
 
 ---
 
 ## Roadmap
 
-1. Make `train.py` runnable and self-consistent, and persist the scaler
+1. ~~Make `train.py` runnable and self-consistent, and persist the scaler~~ done, and
+   covered by `scripts/verify_pipeline.py`
 2. Public repository with real commit history
 3. Retrain on IEEE-CIS with a temporal split and leak-free merchant risk encoding,
-   then update every number in this file
+   then update every number in this file. This is the only step that can produce a metric
+   worth quoting, and it should also re-measure whether the autoencoder earns its 0.3 weight.
 4. Containers, model artefacts in Alibaba Cloud OSS under versioned keys, deploy with a
    public URL, managed PostgreSQL audit store
 5. Analyst review queue recording true and false-positive verdicts, which also produces

@@ -12,3 +12,5 @@ joblib>=1.5.0
 pydantic>=2.11.0
 sqlalchemy>=2.0.0
 psycopg2-binary>=2.9.9
+# httpx powers fastapi.testclient, used by scripts/verify_pipeline.py
+httpx>=0.28.0
