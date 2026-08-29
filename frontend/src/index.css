@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
 
-:root {
+:root, [data-theme="dark"] {
   --bg-base: #0B0E14;
   --bg-panel: #141925;
   --bg-panel-raised: #1A2030;
@@ -24,6 +24,27 @@
   color-scheme: dark;
 }
 
+[data-theme="light"] {
+  --bg-base: #F4F6FB;
+  --bg-panel: #FFFFFF;
+  --bg-panel-raised: #EBF0F8;
+  --border-subtle: #D8E0F0;
+  --text-primary: #1E293B;
+  --text-secondary: #475569;
+  --text-tertiary: #94A3B8;
+
+  --signal-blue: #2563EB;
+  --signal-blue-dim: #2563EB22;
+  --alert-red: #DC2626;
+  --alert-red-dim: #DC262622;
+  --alert-amber: #D97706;
+  --alert-amber-dim: #D9770622;
+  --signal-green: #16A34A;
+  --signal-green-dim: #16A34A22;
+
+  color-scheme: light;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -39,9 +60,10 @@ body {
   color: var(--text-primary);
   font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.3s ease, color 0.3s ease;
   background-image:
-    radial-gradient(circle at 15% 0%, #5B8AF00C 0%, transparent 45%),
-    radial-gradient(circle at 100% 100%, #E0524C08 0%, transparent 40%);
+    radial-gradient(circle at 15% 0%, var(--signal-blue-dim) 0%, transparent 45%),
+    radial-gradient(circle at 100% 100%, var(--alert-red-dim) 0%, transparent 40%);
 }
 
 button {
