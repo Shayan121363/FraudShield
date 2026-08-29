@@ -1,11 +1,30 @@
 {
-  "xgb_roc_auc": 1.0,
-  "xgb_pr_auc": 0.987,
-  "autoencoder_roc_auc": 0.9987,
-  "ensemble_pr_auc": 0.9913,
-  "best_threshold": 0.8616,
-  "anomaly_threshold": 0.50038,
+  "xgb_roc_auc": 0.7671,
+  "xgb_pr_auc": 0.1157,
+  "autoencoder_roc_auc": 0.4503,
+  "ensemble_pr_auc": 0.103,
+  "best_threshold": 0.3867,
+  "supervised_best_threshold": 0.5159,
+  "anomaly_threshold": 0.0874,
   "ensemble_weight_supervised": 0.7,
-  "test_set_size": 10000,
-  "test_fraud_count": 25
+  "test_set_size": 118108,
+  "test_fraud_count": 4064,
+  "train_fraud_count": 16599,
+  "dataset": {
+    "source": "synthetic",
+    "generator": "ml/generate_data.py",
+    "rows": 590540,
+    "path": "../data/transactions.csv"
+  },
+  "repro": {
+    "random_seed": 42,
+    "test_size": 0.2,
+    "n_estimators": 300,
+    "python": "3.13.2",
+    "xgboost": "3.4.1",
+    "torch": "2.12.1",
+    "scikit-learn": "1.9.0",
+    "shap": "0.52.0",
+    "imbalanced-learn": "0.14.2"
+  }
 }
