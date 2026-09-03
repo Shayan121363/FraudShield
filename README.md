@@ -158,24 +158,33 @@ much as of the model.
 ## Tech stack
 
 **ML** — Python, XGBoost, PyTorch, scikit-learn, imbalanced-learn (SMOTE), SHAP, pandas,
-numpy, joblib
+numpy, joblib. `huggingface_hub` for the IEEE-CIS downloader, which installs itself on
+first run if it is missing.
 
-**Backend** — FastAPI, Pydantic v2, SQLAlchemy 2, Uvicorn, WebSockets
+**Backend** — FastAPI, Pydantic v2, SQLAlchemy 2, Uvicorn, WebSockets, python-dotenv,
+psycopg2-binary. `httpx` is also pinned because it powers `fastapi.testclient` in the
+verification script.
 
-**Frontend** — React 19, Vite 8, Recharts 3
+**Frontend** — React 19, Vite 8, Recharts 3, React Router 7 (hash routing, so the build
+serves from any static host without rewrite rules).
 
 **Data** — PostgreSQL in production, SQLite locally. Chosen by a single `DATABASE_URL`
-environment variable, so no code path differs between the two.
+environment variable, so no code path differs between the two. SQLite needs
+`check_same_thread=False`, which is the only branch that does.
+
+Developed and verified on Python 3.13.2 with Node 24.9.0. Library versions that produced
+the committed artefacts are recorded in `metrics.json` under `repro`.
 
 ---
 
 ## Project layout
 
 ```
-fraud-detection/
+FraudShield/
 ├── ml/
 │   ├── generate_data.py        Synthetic transaction generator
 │   ├── train.py                Training pipeline for both models
+│   ├── download_ieee_cis.py    IEEE-CIS download + mapping onto the 7-feature contract
 │   └── models/                 Committed artefacts, so a clone runs immediately
 │       ├── xgb_model.json      XGBoost booster
 │       ├── autoencoder.pt      PyTorch weights
@@ -183,30 +192,55 @@ fraud-detection/
 │       ├── feature_names.json  Feature contract, read at startup
 │       └── metrics.json        Held-out metrics, served by /health
 ├── backend/
-│   ├── main.py                 FastAPI app, routes, WebSocket, persistence
+│   ├── main.py                 App assembly, CORS, router registration
 │   ├── requirements.txt
+│   ├── .env                    DATABASE_URL (gitignored; falls back to local SQLite)
 │   └── app/
-│       ├── config.py           Paths and DATABASE_URL
-│       ├── database.py         Engine, session factory
+│       ├── config.py           Loads .env, resolves paths and DATABASE_URL
+│       ├── database.py         Engine, session factory, get_db dependency
 │       ├── db_models.py        TransactionRecord audit table
-│       ├── ml_engine.py        Scoring, ensemble, SHAP, explanation
-│       └── schemas.py          Pydantic request and response models
+│       ├── ml_engine.py        Loads artefacts, scores, ensembles, SHAP, explains
+│       ├── schemas.py          Pydantic request and response models
+│       ├── services.py         SESSION_STATS, audit persistence, CSV load for the stream
+│       └── routers/
+│           ├── predict.py      /predict, /predict/batch, /history
+│           ├── stats.py        /health, /stats
+│           └── stream.py       /ws/stream
 ├── frontend/
+│   ├── .env                    VITE_API_URL (gitignored)
+│   ├── vite.config.js
 │   └── src/
-│       ├── App.jsx             Console shell and WebSocket client
-│       ├── components/
-│       │   ├── Ledger.jsx              Rolling transaction table
-│       │   ├── SignalStrip.jsx         Proportional risk bar
-│       │   ├── StatCard.jsx            Session counters
-│       │   ├── RiskChart.jsx           Ensemble score over time
-│       │   └── ExplainabilityPanel.jsx SHAP factors and note
-│       ├── App.css
-│       └── index.css
+│       ├── main.jsx
+│       ├── App.jsx             Router shell, header, connection indicator
+│       ├── context/
+│       │   └── AppDataContext.jsx  WebSocket client, ledger, alerts, CSV export
+│       ├── pages/
+│       │   ├── LiveConsole.jsx     Ledger + filters + side rail
+│       │   ├── Analytics.jsx       Risk mix, amount histogram, amount-vs-risk scatter
+│       │   ├── ModelInsights.jsx   Every served metric, threshold and library version
+│       │   └── History.jsx         Paged rows read back from /history
+│       └── components/
+│           ├── Ledger.jsx              Rolling transaction table, last 50 rows
+│           ├── SignalStrip.jsx         Proportional risk bar, exports RISK_META bands
+│           ├── StatCard.jsx            Session counters
+│           ├── RiskChart.jsx           Ensemble score over the last 30 transactions
+│           ├── ExplainabilityPanel.jsx SHAP factor bars and the written note
+│           ├── FilterBar.jsx           Search and risk-band filter
+│           ├── ActionBar.jsx           Pause, simulate, clear, export
+│           ├── SimulateTxnModal.jsx    Manual 7-feature form, POSTs to /predict
+│           ├── NavBar.jsx              Page links
+│           ├── NotificationBell.jsx    Flagged and high-risk transactions
+│           ├── PageTransition.jsx      Route change animation wrapper
+│           └── ThemeToggle.jsx         Dark / light
 ├── scripts/
 │   └── verify_pipeline.py      Serving-path contract checks + linear baseline probe
 └── data/
     └── transactions.csv        Generated dataset, committed so the demo runs
 ```
+
+The audit database is created at `sqlite:///./fraud.db`, which resolves against the current
+working directory, so running the API from `backend/` and from the repo root produces two
+different `fraud.db` files. Both are gitignored.
 
 ---
 
