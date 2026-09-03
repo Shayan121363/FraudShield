@@ -15,21 +15,31 @@ I would rather put this at the top than make you dig for it.
 | Area | Status |
 |---|---|
 | Ensemble scoring engine (XGBoost + autoencoder + SHAP) | Works. Verified end to end. |
-| REST and WebSocket API | Works. Six endpoints. |
-| Database audit trail | Works. Postgres or SQLite via env var. |
-| React analyst console | Works. Production build passes. |
+| REST and WebSocket API | Works. Six endpoints, all asserted by `scripts/verify_pipeline.py`. |
+| Database audit trail | Works. Postgres or SQLite via one env var. Write failures are swallowed. |
+| React analyst console | Works. Four pages, production build passes. |
 | Training pipeline | Runs and regenerates every served artefact. Byte-identical across runs. |
+| Public repository | Done. [Shayan121363/FraudShield](https://github.com/Shayan121363/FraudShield) |
+| IEEE-CIS download and feature mapping | Script exists. Its merchant-risk encoding leaks the target, so it is not trainable yet. |
 | **Model performance data** | **Measured on synthetic transactions that are too easy** |
 | Alibaba Cloud deployment | Not done yet |
 | Analyst review workflow | Not done yet |
 
-The performance numbers in this README come from a **synthetic dataset** whose classes
-are more separated than production data would be. They are now known to be saturated: an
-untuned `LogisticRegression` reaches the same PR-AUC as the full ensemble on the same
-split (see [Results](#results)). Read the numbers as evidence that the architecture and
-the explainability layer work end to end, and as no evidence at all about real-world
-detection quality. Re-baselining against a real labelled corpus is the next piece of work
-and the numbers will change.
+The performance numbers in this README come from a **synthetic dataset** whose classes are
+more separated than production data would be. They are saturated, and by more than the first
+draft of this file admitted: an untuned `LogisticRegression` on an 80/20 split of the same
+corpus scores PR-AUC **0.9996**, slightly *ahead* of the shipped ensemble's 0.9984 (see
+[Results](#results)). Read every number here as evidence that the architecture and the
+explainability layer work end to end, and as no evidence at all about real-world detection
+quality. Re-baselining against a real labelled corpus is the next piece of work and the
+numbers will change.
+
+Both claims above are checkable on this tree rather than something to take on trust:
+
+```bash
+python scripts/verify_pipeline.py   # 12 of 12 serving checks pass
+npm run build                       # in frontend/, builds clean
+```
 
 ---
 
@@ -42,6 +52,11 @@ as "train a classifier".
 that always predicts "legit" reaches 99.7% accuracy and is worthless. Any evaluation
 built on accuracy is misleading here, so this project reports PR-AUC and
 precision/recall at a tuned threshold.
+
+To be straight about it: the corpus this build trains on is generated at a **10% fraud
+rate**, so nothing in the current numbers actually exercises that imbalance. SMOTE at 10%
+positive is close to a formality. The imbalance is a property of real payment traffic that
+this pipeline is built to handle and this dataset does not yet demonstrate.
 
 **Concept drift.** Fraud rings change tactics within days of a rule or model shift.
 A purely supervised model can only find fraud that resembles already-labelled fraud, so
@@ -96,35 +111,47 @@ records cannot drift apart.
 | Explainability | SHAP `TreeExplainer` | Additive, per-transaction, theoretically consistent attributions |
 | Reporting | Rule-based generation from SHAP values | Deterministic and auditable. An LLM rewrite is planned, see roadmap |
 | Evaluation | PR-AUC, precision/recall, F1-optimal threshold | Accuracy is meaningless under this imbalance |
-| Baseline check | Untuned logistic regression on the same split | Stops a saturated synthetic metric being read as model quality |
+| Baseline check | Untuned logistic regression on the same corpus | Stops a saturated synthetic metric being read as model quality. On this data it does exactly that |
 
 ### Results
 
-Held-out test set: 10,000 transactions containing 25 fraud cases, drawn at the natural
-class ratio and never resampled.
+Held-out test set: 10,000 transactions containing 997 fraud cases, which is the corpus's
+generated 10% rate carried through untouched. SMOTE is applied to the training split only,
+so the test set is never resampled.
 
 | Metric | Value |
 |---|---|
-| XGBoost PR-AUC | 1.0000 |
-| XGBoost ROC-AUC | 1.0000 |
-| Autoencoder ROC-AUC (reconstruction error) | 0.9969 |
-| Ensemble PR-AUC | 1.0000 |
-| F1-optimal decision threshold (ensemble score) | 0.6450 |
-| F1-optimal threshold, supervised score alone | 0.5251 |
-| Anomaly calibration threshold | 0.53891 |
-| **Untuned `LogisticRegression` PR-AUC, same split** | **1.0000** |
+| XGBoost ROC-AUC | 0.9999 |
+| XGBoost PR-AUC | 0.9995 |
+| Autoencoder ROC-AUC (reconstruction error) | 0.9929 |
+| Ensemble PR-AUC | 0.9984 |
+| F1-optimal decision threshold (ensemble score) | 0.5719 |
+| F1-optimal threshold, supervised score alone | 0.7302 |
+| Anomaly calibration threshold (95th percentile of legit training error) | 0.10117 |
+| Fusion weight, supervised / anomaly | 0.7 / 0.3 |
+| **Untuned `LogisticRegression` PR-AUC, same corpus** | **0.9996** |
 
-That last row is the one that matters. A seven-feature linear model, with no SMOTE and no
-tuning, separates this test set perfectly. Every metric above is therefore at ceiling and
-the ensemble cannot be shown to add anything on this data. No single feature does it alone
-(the best is `distance_from_home_km`, 0.7946 PR-AUC), but the combination is trivially
-separable, which is a property of the generator rather than of the modelling. Both models
-and the fusion weight only become testable against a real corpus.
+That last row decides what all the others mean. A seven-feature linear model, with no SMOTE
+and no tuning, does not merely match this ensemble, it edges past it. Every metric is at
+ceiling, the autoencoder is not shown to earn its 0.3 weight, and the fusion carries no
+measurable value on this data. Individual features are nearly as separable on their own —
+ranked by PR-AUC on the test partition, taking the more predictive direction per feature:
+`merchant_risk_score` 0.9244, `distance_from_home_km` 0.8666, `account_age_days` 0.8191,
+`txns_last_24h` 0.7087, `amount` 0.6250, `hour` 0.3788, `is_foreign` 0.2614. Three of the
+seven clear 0.8 by themselves, which is a property of `generate_data.py` rather than of any
+modelling choice.
 
-These are reproducible from `ml/models/metrics.json`, and `/health` returns the same
-object at runtime. With 25 positive cases in the test set the confidence interval on
-every number above is wide. That is a further reason not to read them as production
-quality.
+One caveat on how that comparison is drawn. `train.py` splits by row position over a CSV the
+generator shuffled once with a fixed seed, while `verify_pipeline.py` fits its baseline on
+its own stratified 80/20 split of the same file. Same corpus and same proportions, not an
+identical partition. With 997 positives in test the confidence intervals are narrow, so the
+problem here is not sample size. It is that the benchmark has no headroom.
+
+Every number is reproducible from `ml/models/metrics.json`, and `/health` returns that same
+object at runtime. Note that these are not the numbers this README shipped with originally:
+they moved when the generator's fraud rate went from 0.25% to 10%, which is the whole reason
+seeds are pinned and `metrics.json` is committed. A threshold is a property of the corpus as
+much as of the model.
 
 ---
 
