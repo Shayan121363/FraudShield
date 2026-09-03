@@ -60,9 +60,10 @@ def to_anomaly_score(error: float, threshold: float) -> float:
 
 
 def risk_level_from_score(score: float) -> str:
-    if score >= 0.8:
-        return "critical"
+    # Further lowered thresholds to increase high/critical prevalence
     if score >= 0.5:
+        return "critical"
+    if score >= 0.3:
         return "high"
     if score >= 0.2:
         return "medium"

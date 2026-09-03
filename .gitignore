@@ -14,9 +14,13 @@ fraud.db
 _verify.db
 *.log
 
-# Secrets
+# Secrets — never commit credentials
 .env
 .env.local
+.env.*.local
+backend/.env
+frontend/.env
+frontend/.env.local
 
 # Model artefacts are committed on purpose so a fresh clone runs out of the box.
 # They total under 500 KB. Uncomment the next line if you move them to OSS.
