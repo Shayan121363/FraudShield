@@ -135,6 +135,7 @@ def run_training_pipeline(data_path=DATA_PATH):
         "autoencoder_roc_auc": round(ae_auc, 4),
         "ensemble_pr_auc": round(ens_pr_auc, 4),
         "best_threshold": round(ens_thresh, 4),
+        
         "supervised_best_threshold": round(sup_thresh, 4),
         "anomaly_threshold": round(anomaly_thresh, 5),
         "ensemble_weight_supervised": ENSEMBLE_WEIGHT_SUPERVISED,

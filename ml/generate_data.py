@@ -12,7 +12,7 @@ import pandas as pd
 np.random.seed(42)
 
 N_SAMPLES = 50000
-FRAUD_RATIO = 0.0025  # ~0.25%, realistic for card fraud
+FRAUD_RATIO = 0.10  # 10% fraud rate — gives a realistic spread of high/critical scores in the stream
 
 n_fraud = int(N_SAMPLES * FRAUD_RATIO)
 n_legit = N_SAMPLES - n_fraud
