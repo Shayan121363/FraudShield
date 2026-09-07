@@ -5,7 +5,7 @@ BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO_ROOT = os.path.dirname(BACKEND_DIR)
 
 # Load .env from the backend directory (works whether you run from repo root or /backend)
-load_dotenv(dotenv_path=os.path.join(BACKEND_DIR, ".env"))
+_ = load_dotenv(dotenv_path=os.path.join(BACKEND_DIR, ".env"))
 
 BASE_DIR = BACKEND_DIR
 
