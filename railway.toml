@@ -4,4 +4,8 @@ dockerfilePath = "Dockerfile"
 
 [deploy]
 healthcheckPath = "/health"
+# The ML stack (torch, shap, xgboost) is imported and loaded at startup, so the
+# first request can lag well past Railway's 30 s default and crash-loop the service.
+healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10

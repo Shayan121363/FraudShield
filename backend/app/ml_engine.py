@@ -13,6 +13,22 @@ from app.config import MODEL_DIR
 from app.schemas import PredictionResponse, Transaction, FactorItem, UserGuidance, SafetyCheckItem
 
 # Load model metadata
+_REQUIRED_ARTEFACTS = (
+    "feature_names.json",
+    "metrics.json",
+    "scaler.pkl",
+    "xgb_model.json",
+    "autoencoder.pt",
+)
+_absent = [f for f in _REQUIRED_ARTEFACTS if not os.path.exists(os.path.join(MODEL_DIR, f))]
+if _absent:
+    raise RuntimeError(
+        f"Served model artefacts are missing from MODEL_DIR={MODEL_DIR!r}: {', '.join(_absent)}. "
+        "ml/ must be present in the image. On Railway set the service Root Directory to the "
+        "repository root and the builder to DOCKERFILE, since the Dockerfile copies ml/ from "
+        "there and Docker COPY cannot reach above the build context."
+    )
+
 with open(os.path.join(MODEL_DIR, "feature_names.json")) as f:
     FEATURE_COLS = json.load(f)
 
