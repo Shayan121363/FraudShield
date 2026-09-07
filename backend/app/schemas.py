@@ -19,8 +19,30 @@ class FactorItem(BaseModel):
     value: float
 
 
+class SafetyCheckItem(BaseModel):
+    id: str
+    question_en: str
+    question_ur: str
+    tip_en: str
+    tip_ur: str
+
+
+class UserGuidance(BaseModel):
+    demographic: str
+    plain_title_en: str
+    plain_title_ur: str
+    plain_reason_en: str
+    plain_reason_ur: str
+    confidence_verdict_en: str
+    confidence_verdict_ur: str
+    safety_checklist: List[SafetyCheckItem]
+    recommended_action_en: str
+    recommended_action_ur: str
+
+
 class PredictionResponse(BaseModel):
     transaction_id: Optional[str]
+    amount: Optional[float] = None
     fraud_probability: float
     anomaly_score: float
     risk_score: float
@@ -28,6 +50,7 @@ class PredictionResponse(BaseModel):
     risk_level: str
     top_factors: List[FactorItem]
     explanation: str
+    user_guidance: Optional[UserGuidance] = None
 
 
 class StatsResponse(BaseModel):

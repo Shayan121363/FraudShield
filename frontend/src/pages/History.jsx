@@ -1,42 +1,52 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import PageTransition from '../components/PageTransition';
 import { RISK_META } from '../components/SignalStrip';
 import { useAppData } from '../context/AppDataContext';
+import { useT } from '../translations';
 
 const LIMIT_OPTIONS = [25, 50, 100, 200];
 
 export default function History() {
-  const { API_URL } = useAppData();
+  const { API_URL, lang } = useAppData();
+  const t = useT(lang);
+  const isUrdu = lang === 'ur';
+
   const [records, setRecords] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [limit, setLimit] = useState(50);
   const [query, setQuery] = useState('');
 
-  useEffect(() => {
-    let cancelled = false;
-    fetch(`${API_URL}/history?limit=${limit}`)
-      .then((res) => {
-        if (!res.ok) throw new Error('bad response');
-        return res.json();
-      })
-      .then((data) => {
-        if (!cancelled) {
-          setRecords(data);
+  const fetchHistory = useCallback(
+    (targetLimit) => {
+      setLoading(true);
+      const url = `${API_URL}/history?limit=${targetLimit}&_t=${Date.now()}`;
+      fetch(url, { cache: 'no-store' })
+        .then((res) => {
+          if (!res.ok) throw new Error('bad response');
+          return res.json();
+        })
+        .then((data) => {
+          setRecords(Array.isArray(data) ? data : []);
           setError(false);
           setLoading(false);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
+        })
+        .catch(() => {
           setError(true);
           setLoading(false);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [API_URL, limit]);
+        });
+    },
+    [API_URL]
+  );
+
+  useEffect(() => {
+    fetchHistory(limit);
+  }, [fetchHistory, limit]);
+
+  const handleSelectLimit = (opt) => {
+    setLimit(opt);
+    fetchHistory(opt);
+  };
 
   const filtered = useMemo(() => {
     if (!query) return records;
@@ -55,62 +65,96 @@ export default function History() {
             </svg>
             <input
               type="text"
-              placeholder="Search by transaction ID…"
+              placeholder={isUrdu ? 'ٹرانزیکشن آئی ڈی سے تلاش کریں…' : 'Search by transaction ID…'}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
           </div>
 
           <div className="history-limit-select">
+            <span className="history-limit-label">
+              {isUrdu ? 'تعداد:' : 'Limit:'}
+            </span>
             {LIMIT_OPTIONS.map((opt) => (
               <button
                 key={opt}
+                type="button"
                 className={`history-limit-btn ${limit === opt ? 'history-limit-btn--active' : ''}`}
-                onClick={() => setLimit(opt)}
+                onClick={() => handleSelectLimit(opt)}
+                title={`Show up to ${opt} records`}
               >
                 {opt}
               </button>
             ))}
+            <button
+              type="button"
+              className="history-refresh-btn"
+              onClick={() => fetchHistory(limit)}
+              title={isUrdu ? 'تازہ ترین ریکارڈز لائیں' : 'Refresh records'}
+            >
+              🔄
+            </button>
           </div>
         </div>
 
         <div className="chart-panel">
           <div className="panel-heading">
-            <span>PERSISTED TRANSACTION HISTORY</span>
-            <span className="panel-heading-count">{filtered.length} rows</span>
+            <span>{isUrdu ? 'محفوظ شدہ ٹرانزیکشن ہسٹری' : 'PERSISTED TRANSACTION HISTORY'}</span>
+            <span className="panel-heading-count">
+              {isUrdu
+                ? `${filtered.length} قطاریں (حد: ${limit})`
+                : `${filtered.length} rows (limit: ${limit})`}
+            </span>
           </div>
 
-          {loading && <div className="ledger-empty">Loading history…</div>}
-          {!loading && error && (
+          {loading && records.length === 0 && (
+            <div className="ledger-empty">
+              {isUrdu ? 'ہسٹری لوڈ ہو رہی ہے…' : 'Loading history…'}
+            </div>
+          )}
+
+          {!loading && error && records.length === 0 && (
             <div className="ledger-empty">
               Couldn&apos;t reach the backend at <code>{API_URL}</code>.
             </div>
           )}
+
           {!loading && !error && filtered.length === 0 && (
-            <div className="ledger-empty">No persisted records yet.</div>
+            <div className="ledger-empty">
+              {isUrdu ? 'کوئی ریکارڈ موجود نہیں ہے۔' : 'No persisted records found.'}
+            </div>
           )}
 
-          {!loading && !error && filtered.length > 0 && (
-            <div className="history-table-wrap">
+          {filtered.length > 0 && (
+            <div className={`history-table-wrap ${loading ? 'history-table-wrap--loading' : ''}`}>
               <table className="history-table">
                 <thead>
                   <tr>
-                    <th>ID</th>
-                    <th>Amount</th>
-                    <th>Risk</th>
-                    <th>Score</th>
-                    <th>Flagged</th>
-                    <th>Scored at</th>
+                    <th>{isUrdu ? 'شناخت (ID)' : 'ID'}</th>
+                    <th>{isUrdu ? 'رقم' : 'Amount'}</th>
+                    <th>{isUrdu ? 'خطرہ' : 'Risk'}</th>
+                    <th>{isUrdu ? 'اسکور' : 'Score'}</th>
+                    <th>{isUrdu ? 'نشان زدہ' : 'Flagged'}</th>
+                    <th>{isUrdu ? 'وقت' : 'Scored at'}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((r, i) => {
                     const meta = RISK_META[r.risk_level] ?? RISK_META.low;
+                    const riskLabel =
+                      isUrdu
+                        ? r.risk_level === 'low'
+                          ? t.riskLow
+                          : r.risk_level === 'medium'
+                          ? t.riskMedium
+                          : t.riskHigh
+                        : meta.label;
+
                     return (
-                      <tr key={r.id ?? i} className="history-row" style={{ animationDelay: `${Math.min(i, 20) * 20}ms` }}>
+                      <tr key={r.id ?? `${r.transaction_id}-${i}`} className="history-row">
                         <td className="history-id">{r.transaction_id}</td>
                         <td>${(r.amount ?? 0).toFixed(2)}</td>
-                        <td style={{ color: meta.color }}>{meta.label}</td>
+                        <td style={{ color: meta.color }}>{riskLabel}</td>
                         <td>{(r.risk_score * 100).toFixed(1)}%</td>
                         <td>{r.is_flagged ? '🚩' : '—'}</td>
                         <td className="history-timestamp">

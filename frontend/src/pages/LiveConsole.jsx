@@ -8,6 +8,7 @@ import ActionBar from '../components/ActionBar';
 import SimulateTxnModal from '../components/SimulateTxnModal';
 import PageTransition from '../components/PageTransition';
 import { useAppData } from '../context/AppDataContext';
+import { useT } from '../translations';
 
 export default function LiveConsole() {
   const {
@@ -39,6 +40,9 @@ export default function LiveConsole() {
     });
   }, [ledger, searchQuery, riskFilter]);
 
+  const { lang } = useAppData();
+  const t = useT(lang);
+
   return (
     <PageTransition>
       <div className="console-body">
@@ -64,8 +68,8 @@ export default function LiveConsole() {
 
         <aside className="side-rail">
           <div className="stat-grid">
-            <StatCard label="Flagged" value={flaggedCount} sublabel="this session" accent="var(--alert-red)" />
-            <StatCard label="Avg risk" value={`${(avgRisk * 100).toFixed(1)}%`} sublabel="rolling window" />
+            <StatCard label={t.flagged} value={flaggedCount} sublabel={t.thisSession} accent="var(--alert-red)" />
+            <StatCard label={t.avgRisk} value={`${(avgRisk * 100).toFixed(1)}%`} sublabel={t.rollingWindow} />
           </div>
 
           <RiskChart history={history} />

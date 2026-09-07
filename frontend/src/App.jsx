@@ -3,21 +3,26 @@ import { AppDataProvider, useAppData } from './context/AppDataContext';
 import NavBar from './components/NavBar';
 import NotificationBell from './components/NotificationBell';
 import ThemeToggle from './components/ThemeToggle';
+import LanguageToggle from './components/LanguageToggle';
 import LiveConsole from './pages/LiveConsole';
 import Analytics from './pages/Analytics';
 import ModelInsights from './pages/ModelInsights';
 import History from './pages/History';
+import ConfidenceFlow from './pages/ConfidenceFlow';
+import { useT } from './translations';
 import './App.css';
 
 function Shell() {
-  const { connected, alerts, setSelected, setAlerts } = useAppData();
+  const { connected, alerts, setSelected, setAlerts, lang } = useAppData();
+  const t = useT(lang);
+  const isUrdu = lang === 'ur';
 
   return (
-    <div className="console">
+    <div className={`console ${isUrdu ? 'lang-urdu' : ''}`} dir={isUrdu ? 'rtl' : 'ltr'}>
       <header className="console-header">
         <div className="console-title">
-          <span className="console-title-main">FRAUD SHIELD</span>
-          <span className="console-title-sub">real-time transaction risk console</span>
+          <span className="console-title-main">{t.appTitle}</span>
+          <span className="console-title-sub">{t.appSubtitle}</span>
         </div>
 
         <NavBar />
@@ -25,7 +30,7 @@ function Shell() {
         <div className="header-controls">
           <div className="connection-indicator">
             <span className={`connection-dot ${connected ? 'connection-dot--live' : ''}`} />
-            <span>{connected ? 'LIVE FEED' : 'DISCONNECTED'}</span>
+            <span>{connected ? t.liveFeed : t.disconnected}</span>
           </div>
 
           <NotificationBell
@@ -34,12 +39,15 @@ function Shell() {
             onClearAlerts={() => setAlerts([])}
           />
 
+          <LanguageToggle />
+
           <ThemeToggle />
         </div>
       </header>
 
       <Routes>
         <Route path="/" element={<LiveConsole />} />
+        <Route path="/confidence-flow" element={<ConfidenceFlow />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/insights" element={<ModelInsights />} />
         <Route path="/history" element={<History />} />

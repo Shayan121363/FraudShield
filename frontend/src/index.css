@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Nastaliq+Urdu:wght@400;600;700&display=swap');
 
 :root, [data-theme="dark"] {
   --bg-base: #0B0E14;
@@ -20,6 +20,7 @@
 
   --font-mono: 'JetBrains Mono', monospace;
   --font-ui: 'Inter', sans-serif;
+  --font-urdu: 'Noto Nastaliq Urdu', 'Urdu Typesetting', 'Jameel Noori Nastaleeq', serif;
 
   color-scheme: dark;
 }
