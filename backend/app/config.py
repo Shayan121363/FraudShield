@@ -1,12 +1,17 @@
 import os
 from dotenv import load_dotenv
 
-# Load .env from the backend directory (works whether you run from repo root or /backend)
-load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"))
+BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+REPO_ROOT = os.path.dirname(BACKEND_DIR)
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MODEL_DIR = os.path.join(BASE_DIR, "ml", "models")
-DATA_PATH = os.path.join(BASE_DIR, "data", "transactions.csv")
+# Load .env from the backend directory (works whether you run from repo root or /backend)
+load_dotenv(dotenv_path=os.path.join(BACKEND_DIR, ".env"))
+
+BASE_DIR = BACKEND_DIR
+
+# ml/ and data/ live at repo root (sibling of backend/), not inside backend/
+MODEL_DIR = os.getenv("MODEL_DIR", os.path.join(REPO_ROOT, "ml", "models"))
+DATA_PATH = os.getenv("DATA_PATH", os.path.join(REPO_ROOT, "data", "transactions.csv"))
 
 # Loaded from backend/.env — set DATABASE_URL there, never hardcode secrets in source
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./fraud.db")
