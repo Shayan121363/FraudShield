@@ -6,20 +6,21 @@ streams the results to a live analyst console over WebSocket.
 
 Built as a solo project for the Alibaba Cloud AI Hackathon (Qualification Round).
 
+**Repository:** [Shayan121363/FraudShield](https://github.com/Shayan121363/FraudShield)
+
 ---
 
 ## What is real right now
-
-I would rather put this at the top than make you dig for it.
 
 | Area | Status |
 |---|---|
 | Ensemble scoring engine (XGBoost + autoencoder + SHAP) | Works. Verified end to end. |
 | REST and WebSocket API | Works. Six endpoints, all asserted by `scripts/verify_pipeline.py`. |
+| Bilingual user guidance (English / Urdu) | Works. Generated per score on the backend, rendered in the console and Confidence Flow. |
 | Database audit trail | Works. Postgres or SQLite via one env var. Write failures are swallowed. |
-| React analyst console | Works. Four pages, production build passes. |
+| React analyst console | Works. Five pages, production build passes. |
+| Styled Excel audit export | Works. Color-coded risk report from the Live Console. |
 | Training pipeline | Runs and regenerates every served artefact. Byte-identical across runs. |
-| Public repository | Done. [Shayan121363/FraudShield](https://github.com/Shayan121363/FraudShield) |
 | IEEE-CIS download and feature mapping | Script exists. Its merchant-risk encoding leaks the target, so it is not trainable yet. |
 | **Model performance data** | **Measured on synthetic transactions that are too easy** |
 | Alibaba Cloud deployment | Not done yet |
@@ -68,25 +69,31 @@ payment because "the model said 0.91", and a compliance file needs a written
 justification. So the system does not stop at a score. It attributes the score to
 specific features and renders that attribution as a sentence.
 
+**Financial inclusion.** A blocked payment also needs to be explained to the customer
+in plain language — especially for first-time digital banking users who may not read
+technical risk factors. FraudShield adds a bilingual *Confidence Flow* layer that turns
+SHAP-driven signals into safety checklists and recommended actions in English and Urdu.
+
 ---
 
 ## Architecture
 
 ```
-                    ┌──────────────────────────────┐
- Transaction stream │        FastAPI backend       │  ┌──────────────────┐
- (simulated, or ────▶│                              │─▶│  React console   │
-  POST /predict)    │  StandardScaler              │  │  (WebSocket)     │
-                    │      │                       │  └──────────────────┘
-                    │      ├─▶ XGBoost ──┐         │
-                    │      │  (supervised)│        │
-                    │      └─▶ Autoencoder┤        │
-                    │         (anomaly)  │        │
-                    │                    ▼        │
-                    │        Weighted ensemble     │
-                    │        + SHAP attribution    │
-                    │        + NL explanation      │
-                    └────────────┬─────────────────┘
+                    ┌──────────────────────────────────────────┐
+ Transaction stream │           FastAPI backend                │  ┌─────────────────────┐
+ (simulated, or ────▶│                                          │─▶│  React console      │
+  POST /predict)    │  StandardScaler                            │  │  (WebSocket feed)   │
+                    │      │                                     │  └─────────────────────┘
+                    │      ├─▶ XGBoost ──┐                       │
+                    │      │  (supervised)│                       │  ┌─────────────────────┐
+                    │      └─▶ Autoencoder┤                       │─▶│  Confidence Flow    │
+                    │         (anomaly)  │                       │  │  (bilingual UX)     │
+                    │                    ▼                        │  └─────────────────────┘
+                    │        Weighted ensemble                    │
+                    │        + SHAP attribution                   │
+                    │        + analyst explanation                │
+                    │        + user_guidance (EN / UR)            │
+                    └────────────┬───────────────────────────────┘
                                  │
                                  ▼
                       SQLAlchemy audit store
@@ -94,9 +101,9 @@ specific features and renders that attribution as a sentence.
 ```
 
 Every scored transaction returns three numbers, a risk band, the five features that
-drove it, and a plain-English note. The same object is pushed over WebSocket to the
-dashboard and written to the database, so what an analyst sees and what the audit trail
-records cannot drift apart.
+drove it, an analyst-facing explanation, and optional bilingual user guidance. The same
+object is pushed over WebSocket to the dashboard and written to the database, so what an
+analyst sees and what the audit trail records cannot drift apart.
 
 ---
 
@@ -109,7 +116,8 @@ records cannot drift apart.
 | Unsupervised model | PyTorch autoencoder, 7→16→8→3→8→16→7 | Trained only on legitimate transactions. Scores by reconstruction error, so it can flag patterns that carry no fraud label yet |
 | Fusion | Weighted ensemble, 0.7 supervised / 0.3 anomaly | The two models fail differently, so the pair is more robust than either |
 | Explainability | SHAP `TreeExplainer` | Additive, per-transaction, theoretically consistent attributions |
-| Reporting | Rule-based generation from SHAP values | Deterministic and auditable. An LLM rewrite is planned, see roadmap |
+| Analyst reporting | Rule-based generation from SHAP values | Deterministic and auditable. An LLM rewrite is planned, see roadmap |
+| User guidance | Rule-based bilingual templates from top SHAP factors | Plain-language safety checklists for underserved / first-time digital users |
 | Evaluation | PR-AUC, precision/recall, F1-optimal threshold | Accuracy is meaningless under this imbalance |
 | Baseline check | Untuned logistic regression on the same corpus | Stops a saturated synthetic metric being read as model quality. On this data it does exactly that |
 
@@ -141,17 +149,8 @@ ranked by PR-AUC on the test partition, taking the more predictive direction per
 seven clear 0.8 by themselves, which is a property of `generate_data.py` rather than of any
 modelling choice.
 
-One caveat on how that comparison is drawn. `train.py` splits by row position over a CSV the
-generator shuffled once with a fixed seed, while `verify_pipeline.py` fits its baseline on
-its own stratified 80/20 split of the same file. Same corpus and same proportions, not an
-identical partition. With 997 positives in test the confidence intervals are narrow, so the
-problem here is not sample size. It is that the benchmark has no headroom.
-
 Every number is reproducible from `ml/models/metrics.json`, and `/health` returns that same
-object at runtime. Note that these are not the numbers this README shipped with originally:
-they moved when the generator's fraud rate went from 0.25% to 10%, which is the whole reason
-seeds are pinned and `metrics.json` is committed. A threshold is a property of the corpus as
-much as of the model.
+object at runtime.
 
 ---
 
@@ -166,7 +165,8 @@ psycopg2-binary. `httpx` is also pinned because it powers `fastapi.testclient` i
 verification script.
 
 **Frontend** — React 19, Vite 8, Recharts 3, React Router 7 (hash routing, so the build
-serves from any static host without rewrite rules).
+serves from any static host without rewrite rules). English / Urdu i18n with RTL layout
+support.
 
 **Data** — PostgreSQL in production, SQLite locally. Chosen by a single `DATABASE_URL`
 environment variable, so no code path differs between the two. SQLite needs
@@ -182,10 +182,10 @@ the committed artefacts are recorded in `metrics.json` under `repro`.
 ```
 FraudShield/
 ├── ml/
-│   ├── generate_data.py        Synthetic transaction generator
+│   ├── generate_data.py        Synthetic transaction generator (50k rows, 10% fraud)
 │   ├── train.py                Training pipeline for both models
 │   ├── download_ieee_cis.py    IEEE-CIS download + mapping onto the 7-feature contract
-│   └── models/                 Committed artefacts, so a clone runs immediately
+│   └── models/                 Committed artefacts — a clone runs immediately
 │       ├── xgb_model.json      XGBoost booster
 │       ├── autoencoder.pt      PyTorch weights
 │       ├── scaler.pkl          Fitted StandardScaler
@@ -199,23 +199,27 @@ FraudShield/
 │       ├── config.py           Loads .env, resolves paths and DATABASE_URL
 │       ├── database.py         Engine, session factory, get_db dependency
 │       ├── db_models.py        TransactionRecord audit table
-│       ├── ml_engine.py        Loads artefacts, scores, ensembles, SHAP, explains
-│       ├── schemas.py          Pydantic request and response models
+│       ├── ml_engine.py        Loads artefacts, scores, ensembles, SHAP, explains, user_guidance
+│       ├── schemas.py          Pydantic request/response models (incl. UserGuidance)
 │       ├── services.py         SESSION_STATS, audit persistence, CSV load for the stream
 │       └── routers/
 │           ├── predict.py      /predict, /predict/batch, /history
 │           ├── stats.py        /health, /stats
 │           └── stream.py       /ws/stream
 ├── frontend/
-│   ├── .env                    VITE_API_URL (gitignored)
+│   ├── .env                    VITE_API_URL, VITE_WS_URL (gitignored)
 │   ├── vite.config.js
 │   └── src/
 │       ├── main.jsx
-│       ├── App.jsx             Router shell, header, connection indicator
+│       ├── App.jsx             Router shell, header, connection indicator, language + theme
+│       ├── translations.js     English / Urdu strings
 │       ├── context/
-│       │   └── AppDataContext.jsx  WebSocket client, ledger, alerts, CSV export
+│       │   └── AppDataContext.jsx  WebSocket client, ledger, alerts, Excel export
+│       ├── utils/
+│       │   └── excelExport.js  Styled .xls audit report with color-coded risk bands
 │       ├── pages/
-│       │   ├── LiveConsole.jsx     Ledger + filters + side rail
+│       │   ├── LiveConsole.jsx     Ledger + filters + explainability side rail
+│       │   ├── ConfidenceFlow.jsx  Bilingual customer safety flow (inclusion UX)
 │       │   ├── Analytics.jsx       Risk mix, amount histogram, amount-vs-risk scatter
 │       │   ├── ModelInsights.jsx   Every served metric, threshold and library version
 │       │   └── History.jsx         Paged rows read back from /history
@@ -224,23 +228,41 @@ FraudShield/
 │           ├── SignalStrip.jsx         Proportional risk bar, exports RISK_META bands
 │           ├── StatCard.jsx            Session counters
 │           ├── RiskChart.jsx           Ensemble score over the last 30 transactions
-│           ├── ExplainabilityPanel.jsx SHAP factor bars and the written note
+│           ├── ExplainabilityPanel.jsx SHAP factor bars, analyst note, Confidence Flow CTA
 │           ├── FilterBar.jsx           Search and risk-band filter
 │           ├── ActionBar.jsx           Pause, simulate, clear, export
 │           ├── SimulateTxnModal.jsx    Manual 7-feature form, POSTs to /predict
 │           ├── NavBar.jsx              Page links
 │           ├── NotificationBell.jsx    Flagged and high-risk transactions
+│           ├── LanguageToggle.jsx      English ↔ Urdu, persists to localStorage
 │           ├── PageTransition.jsx      Route change animation wrapper
 │           └── ThemeToggle.jsx         Dark / light
 ├── scripts/
 │   └── verify_pipeline.py      Serving-path contract checks + linear baseline probe
-└── data/
-    └── transactions.csv        Generated dataset, committed so the demo runs
+├── data/
+│   └── transactions.csv        Generated dataset, committed so the demo runs
+├── pyrightconfig.json
+└── README.md
 ```
 
 The audit database is created at `sqlite:///./fraud.db`, which resolves against the current
 working directory, so running the API from `backend/` and from the repo root produces two
 different `fraud.db` files. Both are gitignored.
+
+---
+
+## Dashboard pages
+
+| Page | Route | Purpose |
+|---|---|---|
+| **Live Console** | `#/` | Real-time ledger, SHAP explainability, pause/simulate/export controls |
+| **Confidence Flow** | `#/confidence-flow` | Customer-facing bilingual safety flow with preset scenarios and interactive checklists |
+| **Analytics** | `#/analytics` | Risk distribution, amount buckets, amount-vs-risk scatter, session stats |
+| **Model Insights** | `#/insights` | Full metrics from `/health`, thresholds, library versions |
+| **History** | `#/history` | Paginated audit trail from `/history` |
+
+The console supports **English and Urdu** (RTL layout). Language preference is stored in
+`localStorage` under `fraudshield_lang`.
 
 ---
 
@@ -270,7 +292,15 @@ npm run dev
 
 Open the dashboard. Transactions stream in every 0.5 to 1.2 seconds, already scored.
 Click any row to inspect its SHAP factors and the written explanation. Rows above the
-decision threshold are highlighted.
+decision threshold are highlighted. Use **Export Excel** on the Live Console to download
+a styled audit report.
+
+Optional frontend env vars (defaults work for local dev):
+
+```env
+VITE_API_URL=http://localhost:8000
+VITE_WS_URL=ws://localhost:8000/ws/stream
+```
 
 To regenerate the dataset or retrain from scratch:
 
@@ -286,9 +316,7 @@ python scripts/verify_pipeline.py
 `train.py` is deterministic. It pins seeds, runs XGBoost with `n_jobs=1` so split order
 does not depend on core count, and calibrates the anomaly threshold on legitimate
 *training* rows only rather than on the test set. Two consecutive runs produce
-byte-identical artefacts, which is what makes the committed models trustworthy as an
-actual product of this script. Paths resolve relative to `train.py`, so it runs from any
-working directory.
+byte-identical artefacts.
 
 ### Scoring a transaction by hand
 
@@ -298,11 +326,9 @@ curl -X POST http://localhost:8000/predict ^
   -d "{\"amount\": 1200.50, \"hour\": 3, \"merchant_risk_score\": 0.8, \"distance_from_home_km\": 320, \"txns_last_24h\": 7, \"is_foreign\": 1, \"account_age_days\": 40}"
 ```
 
-That payload scores as `critical` with a risk score of 1.0, driven by merchant risk,
-distance from home and account age. The response above is captured live, not hand-written,
-and `scripts/verify_pipeline.py` re-checks it. Note the `fraud_probability` of exactly 1.0:
-on saturated synthetic data the supervised model pins to the ceiling, so the ordering of
-factors is currently more informative than the number.
+That payload scores as `critical` with a high risk score, driven by merchant risk,
+distance from home and account age. `scripts/verify_pipeline.py` re-checks this contract
+on every run.
 
 ---
 
@@ -317,7 +343,7 @@ factors is currently more informative than the number.
 | `/health` | GET | Liveness, loaded metrics, database driver |
 | `/ws/stream` | WebSocket | Live simulated feed of pre-scored transactions |
 
-A scoring response looks like this:
+A scoring response includes analyst explanation and bilingual user guidance:
 
 ```json
 {
@@ -330,29 +356,44 @@ A scoring response looks like this:
   "top_factors": [
     { "feature": "merchant_risk_score", "shap_value": 4.376, "value": 0.8 },
     { "feature": "distance_from_home_km", "shap_value": 3.318, "value": 320.0 },
-    { "feature": "account_age_days", "shap_value": 2.758, "value": 40.0 },
-    { "feature": "amount", "shap_value": 1.987, "value": 1200.5 },
-    { "feature": "hour", "shap_value": 0.763, "value": 3.0 }
+    { "feature": "account_age_days", "shap_value": 2.758, "value": 40.0 }
   ],
-  "explanation": "This transaction shows strong indicators of fraud and should be blocked pending review. Primary factors: high-risk merchant, transaction far from home, newer account (fraud probability: 100.0%)."
+  "explanation": "This transaction shows strong indicators of fraud and should be blocked pending review. Primary factors: high-risk merchant, transaction far from home, newer account (fraud probability: 100.0%).",
+  "user_guidance": {
+    "demographic": "First-Time Digital Banking & Wallet User",
+    "plain_title_en": "Safety Check: Unfamiliar or High-Risk Recipient",
+    "plain_title_ur": "حفاظتی تسلی: نیا یا غیر مانوس وصول کنندہ",
+    "plain_reason_en": "This payment is directed to a recipient with an elevated risk rating...",
+    "plain_reason_ur": "یہ رقم ایک ایسے وصول کنندہ کو بھیجی جا رہی ہے...",
+    "confidence_verdict_en": "Take 60 seconds to double-check before releasing your money.",
+    "confidence_verdict_ur": "رقم بھیجنے سے پہلے ایک منٹ رک کر تسلی کر لیں۔",
+    "safety_checklist": [
+      {
+        "id": "check_otp",
+        "question_en": "Did anyone ask you to share your secret OTP or PIN?",
+        "question_ur": "کیا کسی نے آپ سے خفیہ OTP یا PIN مانگا ہے؟",
+        "tip_en": "Bank staff will never ask for your secret code.",
+        "tip_ur": "بینک کا کوئی نمائندہ کبھی خفیہ پاس ورڈ نہیں مانگے گا۔"
+      }
+    ],
+    "recommended_action_en": "Verify the recipient before authorizing.",
+    "recommended_action_ur": "پیسے بھیجنے سے پہلے وصول کنندہ کی تصدیق کریں۔"
+  }
 }
 ```
 
-Risk bands are `low` below 0.2, `medium` to 0.5, `high` to 0.8, `critical` at 0.8 and
-above. Flagging uses the F1-optimal threshold from training, not a round number, and that
-threshold is fitted on the blended ensemble score because that is the value the server
-compares against. An earlier build fitted it on the supervised probability and then
-applied it to the ensemble score, which is why the number moved from 0.8616 to 0.6450 when
-the pipeline was made reproducible.
+**Flagging** uses the F1-optimal ensemble threshold from training (`0.5719` in the
+committed metrics). **Risk bands** for display are `low` below 0.2, `medium` to 0.3,
+`high` to 0.5, and `critical` at 0.5 and above.
 
 ---
 
 ## Data
 
-Currently a synthetic generator producing 50,000 transactions at a 0.25% fraud rate over
+Currently a synthetic generator producing **50,000 transactions at a 10% fraud rate** over
 seven features: amount, hour, merchant risk score, distance from home, transactions in
 the last 24 hours, foreign usage and account age. Fraud rows are drawn from
-distributions that carry the signal you would expect, heavier amounts, late-night skew,
+distributions that carry the signal you would expect — heavier amounts, late-night skew,
 riskier merchants, velocity spikes, newer accounts, and a higher foreign-usage rate.
 
 The generator exists so the whole serving path can be exercised without waiting on a
@@ -361,8 +402,7 @@ download. It is not the target dataset.
 ### Real data
 
 A public IEEE-CIS mirror is available on Hugging Face with 590,540 transactions and
-20,663 labelled frauds, already cleaned, with `hour_of_day` extracted and the counter
-columns preserved. Mapping it onto the existing seven-feature contract requires changing
+20,663 labelled frauds. Mapping it onto the existing seven-feature contract requires changing
 nothing outside the data layer, since `FEATURE_COLS` is read from `feature_names.json`
 at startup and the schema, database table and dashboard all follow it.
 
@@ -375,9 +415,7 @@ than random, because the corpus spans 2017 to 2018 and fraud patterns drift.
 
 ## Known issues
 
-Honest list, roughly in the order I plan to clear it.
-
-- Every headline metric is pinned at 1.0 because the synthetic corpus is too separable.
+- Every headline metric is pinned near ceiling because the synthetic corpus is too separable.
   The ensemble is unproven on this data, and the 0.7/0.3 fusion weight is asserted rather
   than measured. Resolving this needs the real corpus, not more tuning.
 - Metrics are synthetic-data metrics. See above.
@@ -387,35 +425,33 @@ Honest list, roughly in the order I plan to clear it.
   for a deployed one.
 - `SESSION_STATS` is process-local memory, so the numbers reset on restart and do not
   aggregate across workers. The durable figures are in `/history`.
-- The committed `xgb_model.json` is now a true product of `train.py`, but it is not the
-  model that shipped before this was fixed. Those hyperparameters were lost when the script
-  drifted to `LogisticRegression`, so the booster was retrained rather than matched. Every
-  score and threshold therefore shifted, and the previous artefacts still sit in git history.
+- User guidance templates are rule-based, not LLM-generated. They cover common fraud
+  patterns but are not personalized beyond SHAP factor selection.
 
 ### Cleared
 
-- `train.py` trained a `LogisticRegression`, was missing seven imports so it exited with a
-  `NameError`, and never wrote `scaler.pkl`. It now trains the XGBoost booster the backend
-  loads, persists all five artefacts, and reproduces them byte-identically. Verified by
-  deleting `ml/models/` entirely and rebuilding from `data/transactions.csv` alone.
-- The console header and browser tab rendered the earlier working title; both say FraudShield now.
+- `train.py` now trains the XGBoost booster the backend loads, persists all five artefacts,
+  and reproduces them byte-identically.
+- The console header and browser tab render **FraudShield**.
+- CSV export replaced with a styled Excel audit report (color-coded risk bands, metadata banner).
+- Bilingual Confidence Flow and `user_guidance` API field added for financial inclusion.
 
 ---
 
 ## Roadmap
 
-1. ~~Make `train.py` runnable and self-consistent, and persist the scaler~~ done, and
-   covered by `scripts/verify_pipeline.py`
-2. Public repository with real commit history
-3. Retrain on IEEE-CIS with a temporal split and leak-free merchant risk encoding,
+1. ~~Make `train.py` runnable and self-consistent, and persist the scaler~~ done
+2. ~~Public repository with real commit history~~ done
+3. ~~Bilingual customer Confidence Flow and user guidance layer~~ done
+4. Retrain on IEEE-CIS with a temporal split and leak-free merchant risk encoding,
    then update every number in this file. This is the only step that can produce a metric
    worth quoting, and it should also re-measure whether the autoencoder earns its 0.3 weight.
-4. Containers, model artefacts in Alibaba Cloud OSS under versioned keys, deploy with a
+5. Containers, model artefacts in Alibaba Cloud OSS under versioned keys, deploy with a
    public URL, managed PostgreSQL audit store
-5. Analyst review queue recording true and false-positive verdicts, which also produces
+6. Analyst review queue recording true and false-positive verdicts, which also produces
    the label set for the next training cycle
-6. Endpoint authentication and input hardening
-7. Optional: Qwen through Alibaba Cloud Model Studio to turn the deterministic
+7. Endpoint authentication and input hardening
+8. Optional: Qwen through Alibaba Cloud Model Studio to turn the deterministic
    explanation into a narrative report, with SHAP values supplied as grounded context
 
 Out of scope for the build phase, deliberately: distributed Flink streaming, PAI-EAS
