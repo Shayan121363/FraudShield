@@ -29,3 +29,5 @@ frontend/.env.local
 # Large generated files (data/transactions.csv is committed so the demo runs)
 *.parquet
 *.zip
+cloudflared.exe
+.vercel-tmp/
