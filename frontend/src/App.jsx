@@ -6,9 +6,12 @@ import ThemeToggle from './components/ThemeToggle';
 import LanguageToggle from './components/LanguageToggle';
 import LiveConsole from './pages/LiveConsole';
 import Analytics from './pages/Analytics';
-import ModelInsights from './pages/ModelInsights';
+import SecurityCommandCenter from './pages/SecurityCommandCenter';
 import History from './pages/History';
 import ConfidenceFlow from './pages/ConfidenceFlow';
+import RulesEngine from './pages/RulesEngine';
+import FraudSimulator from './pages/FraudSimulator';
+import CaseInvestigator from './pages/CaseInvestigator';
 import { useT } from './translations';
 import './App.css';
 
@@ -48,8 +51,11 @@ function Shell() {
       <Routes>
         <Route path="/" element={<LiveConsole />} />
         <Route path="/confidence-flow" element={<ConfidenceFlow />} />
+        <Route path="/rules" element={<RulesEngine />} />
+        <Route path="/simulator" element={<FraudSimulator />} />
+        <Route path="/investigator" element={<CaseInvestigator />} />
         <Route path="/analytics" element={<Analytics />} />
-        <Route path="/insights" element={<ModelInsights />} />
+        <Route path="/command" element={<SecurityCommandCenter />} />
         <Route path="/history" element={<History />} />
       </Routes>
     </div>

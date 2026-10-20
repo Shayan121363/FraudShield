@@ -15,8 +15,11 @@ export const TRANSLATIONS = {
     // Navigation
     navLiveConsole: 'Live Console',
     navConfidenceFlow: 'Confidence Flow',
+    navRules: 'Rule Engine',
+    navSimulator: 'Attack Simulator',
+    navInvestigator: 'Case Investigator',
     navAnalytics: 'Analytics',
-    navInsights: 'Model Insights',
+    navCommand: 'Command Center',
     navHistory: 'History',
     inclusionBadge: 'Inclusion',
 
@@ -89,8 +92,11 @@ export const TRANSLATIONS = {
     // Navigation
     navLiveConsole: 'لائیو کنسول',
     navConfidenceFlow: 'اعتمادی فلو',
+    navRules: 'پالیسی و رولز',
+    navSimulator: 'حملہ و فراڈ سمیلیٹر',
+    navInvestigator: 'کیس تفتیش کار',
     navAnalytics: 'تجزیات',
-    navInsights: 'ماڈل تفصیلات',
+    navCommand: 'کمانڈ سینٹر',
     navHistory: 'تاریخچہ',
     inclusionBadge: 'شمولیت',
 

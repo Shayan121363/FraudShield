@@ -59,16 +59,41 @@ export default function ExplainabilityPanel({ selected }) {
 
           <p className="explanation-text">{explanationText}</p>
 
-          <div className="confidence-flow-cta">
+          <div className="detail-action-buttons">
+            {selected.is_flagged || selected.risk_level === 'high' || selected.risk_score >= 0.5 ? (
+              <div className="direct-cancel-box">
+                <div className="direct-cancel-badge">🚨 FRAUD DETECTED — SENDING/HOLDING PROHIBITED</div>
+                <button
+                  className="btn-direct-cancel"
+                  onClick={() => {
+                    alert(`Transaction ${selected.transaction_id} has been DIRECTLY CANCELLED. All $${(selected.amount ?? 0).toFixed(2)} retained safely.`);
+                  }}
+                  type="button"
+                >
+                  🛑 {isUrdu ? 'فوری منسوخ کریں (Cancel Immediately)' : 'Direct Cancel Immediately'}
+                </button>
+              </div>
+            ) : null}
+
+            <div className="confidence-flow-cta">
+              <button
+                className="btn-launch-confidence"
+                onClick={() => navigate('/confidence-flow')}
+                type="button"
+              >
+                <span>{t.ctaConfidenceBtn}</span>
+                <span className="cta-arrow">{isUrdu ? '←' : '→'}</span>
+              </button>
+              <span className="cta-subtext">{t.ctaConfidenceSub}</span>
+            </div>
+
             <button
-              className="btn-launch-confidence"
-              onClick={() => navigate('/confidence-flow')}
+              className="btn-inspect-case"
+              onClick={() => navigate(`/investigator?id=${selected.transaction_id}`)}
               type="button"
             >
-              <span>{t.ctaConfidenceBtn}</span>
-              <span className="cta-arrow">{isUrdu ? '←' : '→'}</span>
+              🔍 {isUrdu ? 'تفتیش کار میں کھولیں' : 'Deep Forensic Investigation'}
             </button>
-            <span className="cta-subtext">{t.ctaConfidenceSub}</span>
           </div>
         </div>
       )}

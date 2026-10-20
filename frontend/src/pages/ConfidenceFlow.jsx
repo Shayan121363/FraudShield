@@ -486,91 +486,140 @@ export default function ConfidenceFlow() {
               </p>
             </div>
 
-            <div className="action-options-grid">
-              {/* Option A: Safe Proceed */}
-              <div className="action-choice-card action-choice-card--approve" onClick={() => handleAction('approved')}>
-                <div className="action-card-header">
-                  <div className="action-icon-circle bg-green">
-                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <path d="M20 6L9 17l-5-5" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h4 className="action-title">
-                      {isUrdu ? 'تسلی ہے، ادائیگی منظور کریں' : 'Authorize & Send Payment'}
-                    </h4>
-                    <span className="action-tag">
-                      {isUrdu ? 'اگر آپ نے تمام معلومات خود چیک کی ہیں' : 'If you verified the recipient yourself'}
-                    </span>
+            {/* If transaction is high risk / fraud: strictly enforce Direct Cancel Only */}
+            {activeTxn.risk_level === 'high' || activeTxn.is_flagged || (activeTxn.risk_score && activeTxn.risk_score >= 0.5) ? (
+              <div className="fraud-locked-cancellation animate-fade-in">
+                <div className="fraud-banner-alert">
+                  <div className="fraud-banner-icon">🚨</div>
+                  <div className="fraud-banner-text">
+                    <h3>{isUrdu ? 'فراڈ خطرے کی وجہ سے فوری منسوخی لازمی ہے' : 'Direct Cancellation Enforced — High Fraud Risk'}</h3>
+                    <p>
+                      {isUrdu
+                        ? 'یہ ٹرانزیکشن فراڈ پروٹیکشن فریم ورک کے تحت تصدیق شدہ خطرہ ہے۔ رقم بھیجنے یا عارضی ہولڈ کرنے کا کوئی آپشن دستیاب نہیں ہے، صرف فوری منسوخی کے ذریعے آپ کے فنڈز محفوظ کیے جائیں گے۔'
+                        : 'This transaction exceeds safety risk limits. Sending or holding is strictly prohibited. The transaction is instantly cancelled to safeguard 100% of your funds.'}
+                    </p>
                   </div>
                 </div>
-                <p className="action-desc">
-                  {isUrdu
-                    ? 'رقم فوری طور پر محفوظ طریقے سے منتقل ہو جائے گی اور آپ کے اکاؤنٹ کی ترجیحات میں یہ وصول کنندہ محفوظ ہو جائے گا۔'
-                    : 'Transaction releases securely. Your choice informs the AI model of your trusted merchant preferences.'}
-                </p>
-                <button className="btn-choice-action btn-choice-action--green" type="button">
-                  {isUrdu ? 'ادائیگی بھیجیں' : 'Approve Transfer'}
-                </button>
-              </div>
 
-              {/* Option B: Pause & Call */}
-              <div className="action-choice-card action-choice-card--pause" onClick={() => handleAction('paused')}>
-                <div className="action-card-header">
-                  <div className="action-icon-circle bg-amber">
-                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <circle cx="12" cy="12" r="10" />
-                      <line x1="10" y1="15" x2="10" y2="9" />
-                      <line x1="14" y1="15" x2="14" y2="9" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h4 className="action-title">
-                      {isUrdu ? '10 منٹ کے لیے روکیں اور تسلی کریں' : 'Pause for 10 Mins & Verify'}
-                    </h4>
-                    <span className="action-tag">
-                      {isUrdu ? 'بہترین انتخاب: شک دور کرنے کے لیے' : 'Recommended: Verify without penalty'}
-                    </span>
+                <div className="action-options-grid action-options-grid--single">
+                  {/* ONLY Direct Cancel Option */}
+                  <div className="action-choice-card action-choice-card--cancel action-choice-card--enforced" onClick={() => handleAction('cancelled')}>
+                    <div className="action-card-header">
+                      <div className="action-icon-circle bg-red">
+                        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="15" y1="9" x2="9" y2="15" />
+                          <line x1="9" y1="9" x2="15" y2="15" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h4 className="action-title">
+                          {isUrdu ? 'فوری منسوخ کریں اور فنڈز محفوظ رکھیں' : 'Direct Cancel & Retain 100% Funds'}
+                        </h4>
+                        <span className="action-tag">
+                          {isUrdu ? 'واحد محفوظ انتخاب: فراڈ سے تحفظ' : 'Mandatory Safe Action • Zero Deductions'}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="action-desc">
+                      {isUrdu
+                        ? 'رقم فوری اور مکمل طور پر آپ کے اکاؤنٹ میں واپس رہے گی۔ مشکوک اکاؤنٹ پر پابندی عائد کر دی جائے گی تاکہ کوئی دوبارہ دھوکہ نہ دے سکے۔'
+                        : 'The full amount remains intact in your account. The unauthorized party is blocked immediately across the network.'}
+                    </p>
+                    <button className="btn-choice-action btn-choice-action--red" type="button">
+                      {isUrdu ? '🛑 فوری منسوخ کریں (Cancel Now)' : '🛑 Direct Cancel Immediately'}
+                    </button>
                   </div>
                 </div>
-                <p className="action-desc">
-                  {isUrdu
-                    ? 'ادائیگی 10 منٹ عارضی طور پر ہولڈ رہے گی تاکہ آپ وصول کنندہ یا دکان کے تصدیق شدہ نمبر پر کال کر کے تسلی کر سکیں۔'
-                    : 'Holds payment for 10 minutes so you can call the official store number without canceling your order.'}
-                </p>
-                <button className="btn-choice-action btn-choice-action--amber" type="button">
-                  {isUrdu ? 'ادائیگی روک کر تصدیق کریں' : 'Hold & Verify'}
-                </button>
               </div>
+            ) : (
+              /* If transaction is low/medium risk, normal user choice */
+              <div className="action-options-grid">
+                {/* Option A: Safe Proceed */}
+                <div className="action-choice-card action-choice-card--approve" onClick={() => handleAction('approved')}>
+                  <div className="action-card-header">
+                    <div className="action-icon-circle bg-green">
+                      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M20 6L9 17l-5-5" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="action-title">
+                        {isUrdu ? 'تسلی ہے، ادائیگی منظور کریں' : 'Authorize & Send Payment'}
+                      </h4>
+                      <span className="action-tag">
+                        {isUrdu ? 'اگر آپ نے تمام معلومات خود چیک کی ہیں' : 'If you verified the recipient yourself'}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="action-desc">
+                    {isUrdu
+                      ? 'رقم فوری طور پر محفوظ طریقے سے منتقل ہو جائے گی اور آپ کے اکاؤنٹ کی ترجیحات میں یہ وصول کنندہ محفوظ ہو جائے گا۔'
+                      : 'Transaction releases securely. Your choice informs the AI model of your trusted merchant preferences.'}
+                  </p>
+                  <button className="btn-choice-action btn-choice-action--green" type="button">
+                    {isUrdu ? 'ادائیگی بھیجیں' : 'Approve Transfer'}
+                  </button>
+                </div>
 
-              {/* Option C: Cancel & Protect */}
-              <div className="action-choice-card action-choice-card--cancel" onClick={() => handleAction('cancelled')}>
-                <div className="action-card-header">
-                  <div className="action-icon-circle bg-red">
-                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <line x1="18" y1="6" x2="6" y2="18" />
-                      <line x1="6" y1="6" x2="18" y2="18" />
-                    </svg>
+                {/* Option B: Pause & Call */}
+                <div className="action-choice-card action-choice-card--pause" onClick={() => handleAction('paused')}>
+                  <div className="action-card-header">
+                    <div className="action-icon-circle bg-amber">
+                      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="10" y1="15" x2="10" y2="9" />
+                        <line x1="14" y1="15" x2="14" y2="9" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="action-title">
+                        {isUrdu ? '10 منٹ کے لیے روکیں اور تسلی کریں' : 'Pause for 10 Mins & Verify'}
+                      </h4>
+                      <span className="action-tag">
+                        {isUrdu ? 'بہترین انتخاب: شک دور کرنے کے لیے' : 'Recommended: Verify without penalty'}
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="action-title">
-                      {isUrdu ? 'ادائیگی منسوخ کریں (کوئی کٹوتی نہیں)' : 'Cancel Transfer Safely'}
-                    </h4>
-                    <span className="action-tag">
-                      {isUrdu ? 'اگر کوئی مشکوک بات نظر آئے' : 'Zero fee, 100% funds retained'}
-                    </span>
-                  </div>
+                  <p className="action-desc">
+                    {isUrdu
+                      ? 'ادائیگی 10 منٹ عارضی طور پر ہولڈ رہے گی تاکہ آپ وصول کنندہ یا دکان کے تصدیق شدہ نمبر پر کال کر کے تسلی کر سکیں۔'
+                      : 'Holds payment for 10 minutes so you can call the official store number without canceling your order.'}
+                  </p>
+                  <button className="btn-choice-action btn-choice-action--amber" type="button">
+                    {isUrdu ? 'ادائیگی روک کر تصدیق کریں' : 'Hold & Verify'}
+                  </button>
                 </div>
-                <p className="action-desc">
-                  {isUrdu
-                    ? 'رقم فوری واپس آپ کے والٹ میں رہے گی اور کوئی جرمانہ نہیں ہوگا۔ مشکوک وصول کنندہ کو آئندہ کے لیے بلاک کر دیا جائے گا۔'
-                    : 'Funds stay safely in your account. The unverified recipient is flagged to prevent future unauthorized requests.'}
-                </p>
-                <button className="btn-choice-action btn-choice-action--red" type="button">
-                  {isUrdu ? 'محفوظ منسوخی' : 'Cancel Safely'}
-                </button>
+
+                {/* Option C: Cancel & Protect */}
+                <div className="action-choice-card action-choice-card--cancel" onClick={() => handleAction('cancelled')}>
+                  <div className="action-card-header">
+                    <div className="action-icon-circle bg-red">
+                      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="action-title">
+                        {isUrdu ? 'ادائیگی منسوخ کریں (کوئی کٹوتی نہیں)' : 'Cancel Transfer Safely'}
+                      </h4>
+                      <span className="action-tag">
+                        {isUrdu ? 'اگر کوئی مشکوک بات نظر آئے' : 'Zero fee, 100% funds retained'}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="action-desc">
+                    {isUrdu
+                      ? 'رقم فوری واپس آپ کے والٹ میں رہے گی اور کوئی جرمانہ نہیں ہوگا۔ مشکوک وصول کنندہ کو آئندہ کے لیے بلاک کر دیا جائے گا۔'
+                      : 'Funds stay safely in your account. The unverified recipient is flagged to prevent future unauthorized requests.'}
+                  </p>
+                  <button className="btn-choice-action btn-choice-action--red" type="button">
+                    {isUrdu ? 'محفوظ منسوخی' : 'Cancel Safely'}
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="wizard-actions">
               <button
