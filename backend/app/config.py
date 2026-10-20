@@ -11,14 +11,7 @@ BASE_DIR = BACKEND_DIR
 
 
 def resolve_artifact(env_var: str, relative: str) -> str:
-    """Find a bundled artefact across the tree layouts this app actually runs in.
 
-    ml/ and data/ sit at the repo root, a sibling of backend/. That holds locally and
-    in the Dockerfile image, but a platform whose root directory is backend/ puts this
-    package at /app with no repo root above it. An explicit env override wins when the
-    path it names exists; otherwise the first candidate that exists wins, and the
-    repo-root default is returned so the caller reports every path that was tried.
-    """
     candidates = []
     override = os.getenv(env_var)
     if override:
@@ -33,21 +26,16 @@ def resolve_artifact(env_var: str, relative: str) -> str:
     return unique[0]
 
 
-# ml/ and data/ live at repo root (sibling of backend/), not inside backend/
 MODEL_DIR = resolve_artifact("MODEL_DIR", os.path.join("ml", "models"))
 DATA_PATH = resolve_artifact("DATA_PATH", os.path.join("data", "transactions.csv"))
 
-# Loaded from backend/.env — set DATABASE_URL there, never hardcode secrets in source
+
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./fraud.db")
 
-# Convert postgres:// → postgresql:// (Render/Heroku/Railway shorthand)
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-# SQLAlchemy 2.1+ changed the default PostgreSQL driver to psycopg (v3).
-# This project installs psycopg2-binary, so explicitly route generic
-# postgresql:// URLs through the psycopg2 dialect to avoid
-# "No module named 'psycopg'" at startup.
+
 if DATABASE_URL.startswith("postgresql://") or DATABASE_URL.startswith("postgresql+psycopg://"):
     DATABASE_URL = DATABASE_URL.replace(
         "postgresql://", "postgresql+psycopg2://", 1

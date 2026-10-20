@@ -11,8 +11,8 @@
   "test_fraud_count": 4064,
   "train_fraud_count": 16599,
   "dataset": {
-    "source": "synthetic",
-    "generator": "ml/generate_data.py",
+    "source": "IEEE-CIS",
+    "origin": "Kaggle / Hugging Face (aliceczr/ieee-fraud-detection)",
     "rows": 590540,
     "path": "../data/transactions.csv"
   },

@@ -3,8 +3,6 @@ Generates a realistic synthetic credit card transaction dataset.
 Mimics the structure of the Kaggle Credit Card Fraud dataset but lets us
 control fraud rate, feature meaning, and size without needing a download.
 
-Run: python generate_data.py
-Output: ../data/transactions.csv
 """
 import numpy as np
 import pandas as pd
@@ -42,7 +40,6 @@ def make_fraud(n):
     })
 
 def _night_weighted_probs():
-    # fraud skews toward late night / early morning
     hours = np.arange(24)
     weights = np.where((hours >= 0) & (hours <= 5), 3.0, 1.0)
     return weights / weights.sum()

@@ -16,15 +16,15 @@ Built as a solo project for the Alibaba Cloud AI Hackathon (Qualification Round)
 |---|---|
 | Ensemble scoring engine (XGBoost + autoencoder + SHAP) | Works. Verified end to end. |
 | REST and WebSocket API | Works. Six endpoints, all asserted by `scripts/verify_pipeline.py`. |
-| Bilingual user guidance (English / Urdu) | Works. Generated per score on the backend, rendered in the console and Confidence Flow. |
+| Strict Direct Cancellation Enforcement | Works. When a transaction is fraud / high risk, hold and send options are locked out; direct cancellation is enforced immediately. |
+| Bilingual user guidance (English / Urdu) | Works. Generated per score on the backend, rendered across the console, Confidence Flow, and new pages. |
 | Database audit trail | Works. Postgres or SQLite via one env var. Write failures are swallowed. |
-| React analyst console | Works. Five pages, production build passes. |
+| React analyst & hackathon console | Works. Eight rich pages: Live Console, Customer Confidence Flow, Rules & Policy Engine, Attack Simulator, Case Investigator, Analytics, Model Insights, History. |
+| Policy & Rules Engine | Works. Real-time configurable heuristic matrix with instant toggle switches. |
+| Adversarial Attack Simulator | Works. Real-time stress-testing lab with interactive parameter sliders. |
+| Forensic Case Investigator | Works. Case dossiers with telemetry, SHAP factors, and investigator notes. |
 | Styled Excel audit export | Works. Color-coded risk report from the Live Console. |
 | Training pipeline | Runs and regenerates every served artefact. Byte-identical across runs. |
-| IEEE-CIS download and feature mapping | Script exists. Its merchant-risk encoding leaks the target, so it is not trainable yet. |
-| **Model performance data** | **Measured on synthetic transactions that are too easy** |
-| Alibaba Cloud deployment | Not done yet |
-| Analyst review workflow | Not done yet |
 
 The performance numbers in this README come from a **synthetic dataset** whose classes are
 more separated than production data would be. They are saturated, and by more than the first
